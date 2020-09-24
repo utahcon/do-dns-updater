@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"github.com/digitalocean/godo"
 	"github.com/utahcon/regex/ipv4"
@@ -17,27 +18,44 @@ type Configuration struct {
 	Key    string `yaml:"key"`
 	Domain string `yaml:"domain"`
 	Record string `yaml:"record"`
+	Path   string
 }
 
-func LoadConfiguration() (*Configuration, error) {
-	config := &Configuration{}
-
-	data, err := ioutil.ReadFile("/etc/do-dns-updater.yml")
+func LoadConfiguration(config *Configuration) error {
+	data, err := ioutil.ReadFile(config.Path)
 	if err != nil {
-		return config, err
+		return err
 	}
 
 	err = yaml.Unmarshal([]byte(data), config)
 	if err != nil {
-		return config, err
+		return err
 	}
 
-	return config, nil
+	return nil
+}
+
+func usage() {
+	fmt.Println("do-dns-updater")
+	fmt.Println("Usage message")
+
 }
 
 func main() {
 
-	config, err := LoadConfiguration()
+	config := &Configuration{}
+
+	showUsage := flag.Bool("help", false, "Display help message")
+	flag.StringVar(&config.Path, "path", "/etc/do-dns-updater.yml", "Configuration File Path")
+	flag.StringVar(&config.Key, "key", "", "Digital Ocean API Key")
+	flag.StringVar(&config.Record, "record", "", "Domain Record to Update")
+	flag.StringVar(&config.Domain, "domain", "", "Domain to Update")
+
+	if *showUsage {
+		usage()
+	}
+
+	err := LoadConfiguration(config)
 	if err != nil {
 		fmt.Printf("Error loading configuration: %v\n", err)
 		os.Exit(1)
@@ -92,7 +110,7 @@ func main() {
 							Type: "A",
 							Name: config.Record,
 							Data: addr.String(),
-							TTL:  300,
+							TTL:  30,
 						}
 						newRecord, response, err := client.Domains.EditRecord(ctx, config.Domain, domain.ID, drer)
 						if err != nil {
@@ -110,7 +128,7 @@ func main() {
 							Type: "AAAA",
 							Name: config.Record,
 							Data: addr.String(),
-							TTL:  300,
+							TTL:  30,
 						}
 						fmt.Printf("Request: %v", drer)
 						newRecord, response, err := client.Domains.EditRecord(ctx, config.Domain, domain.ID, drer)
